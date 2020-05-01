@@ -21,12 +21,12 @@ fn main()-> Result<(), Box<dyn Error>> {
     let mut bit0_counter      = 0 ;
     let mut wait_counter      = 0 ;
     let mut trace:  [ usize; 40] = [0; 40] ;
-    let mut bit_position:  u8 = 0b1000_0000 ; // on comence par le point fort
-    let mut byte_value:    u8 = 0 ;
-    let mut byte_counter      = 0 ;
-    let mut humidity:   f32   = 0.0 ;
-    let mut temperatur: f32   = 0.0 ;
-    let mut check_summe:   u8 = 0 ;
+    let mut bit_position: usize  = 0b1000_0000 ; // on comence par le point fort
+    let mut byte_value:   usize  = 0 ;
+    let mut byte_counter:  usize  = 0 ;
+    let mut humidity:     f32    = 0.0 ;
+    let mut temperatur:   f32    = 0.0 ;
+    let mut check_summe:  usize  = 0 ;
 
     // start impuls 18 µsec low 
     if !set_current_thread_priority(ThreadPriority::Max).is_ok(){ return Ok(()) ; }
@@ -62,7 +62,7 @@ fn main()-> Result<(), Box<dyn Error>> {
               break; 
           }
     }
-    bit0_counter += 1 ; // pour evité des faut positif
+    bit0_counter += 8 ; // pour evité des faut positif
 
     //on attend le premier bit
     while pin.read()==Low {
@@ -74,13 +74,14 @@ fn main()-> Result<(), Box<dyn Error>> {
     } 
 
     //  on lit le premier bit 
+    wait_counter = 0 ;
     loop{
          while pin.read()==High {
             wait_counter += 1;
             if  wait_counter > 5000 {
                 break; 
             }
-            //thread::sleep( bit_time );
+           // thread::sleep( bit_time );
          }
          trace[counter] = wait_counter;
          wait_counter = 0;
@@ -102,24 +103,28 @@ fn main()-> Result<(), Box<dyn Error>> {
     for x in    trace.iter() {
         if x > &bit0_counter {
             byte_value += bit_position ;
+            print!("1");
+        }else{
+            print!("0");
         }
         bit_position >>= 1 ;
         if bit_position == 0 {
+            print!(" ");
             match byte_counter {
-                0 =>  { humidity = byte_value as f32 ; check_summe += byte_value ;} ,
-                1 =>  { humidity = (byte_value as f32 ) / 100.0 ; check_summe += byte_value ;} ,
-                2 =>  { temperatur = byte_value as f32 ; check_summe += byte_value ; } ,
-                3 =>  { temperatur = (byte_value as f32 ) / 100.0 ; check_summe += byte_value ; } ,
+                0 =>  { humidity = byte_value as f32 ; check_summe += byte_value ; } 
+                1 =>  { humidity += (byte_value as f32 ) / 100.0 ; check_summe += byte_value ; }
+                2 =>  { temperatur = byte_value as f32 ; check_summe += byte_value ; } 
+                3 =>  { temperatur += (byte_value as f32 ) / 100.0 ; check_summe += byte_value ; }
                 4 =>  check_summe -= byte_value,
                 _ =>  print!("dht11 send to long data")
             }
             byte_value = 0 ;
             bit_position = 0b1000_0000 ;
-            byte_counter  = 0 ;
+            byte_counter  += 1 ;
         }
         
     }
-    print!("H = {}, T = {}, CS = {}", humidity, temperatur, check_summe);
+    print!("H = {}, T = {}, CS = {}\n", humidity, temperatur, check_summe);
     Ok(())    
 }
 
